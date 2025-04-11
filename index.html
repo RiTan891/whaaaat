@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Трекер привычек</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #4CAF50;
+      --light: #ffffff;
+      --bg: #f2f2f2;
+      --gray: #888;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: #333;
+      max-width: 700px;
+      margin: auto;
+      animation: fadeIn 0.7s ease;
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 0.7rem 1rem;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: var(--shadow);
+    }
+
+    button {
+      padding: 0.7rem 1.2rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      background: var(--light);
+      margin-bottom: 0.7rem;
+      padding: 0.9rem 1.2rem;
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      animation: slideIn 0.4s ease;
+    }
+
+    li span {
+      font-size: 1rem;
+      transition: color 0.3s ease;
+    }
+
+    .done {
+      text-decoration: line-through;
+      color: var(--gray);
+    }
+
+    .notif {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--primary);
+      color: white;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      animation: fadeInUp 0.5s ease;
+    }
+
+    canvas {
+      margin-top: 2rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .btn-group button {
+      background: none;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      margin-left: 0.5rem;
+      transition: transform 0.2s ease;
+    }
+
+    .btn-group button:hover {
+      transform: scale(1.15);
+    }
+  </style>
+</head>
+<body>
+  <h1>🌱 Трекер привычек</h1>
+
+  <form id="habit-form">
+    <input type="text" id="habit-input" placeholder="Новая привычка..." required />
+    <button type="submit">Добавить</button>
+  </form>
+
+  <ul id="habit-list"></ul>
+
+  <canvas id="habitChart" height="200"></canvas>
+
+  <script>
+    const habits = JSON.parse(localStorage.getItem("habits") || "[]");
+    const form = document.getElementById("habit-form");
+    const input = document.getElementById("habit-input");
+    const list = document.getElementById("habit-list");
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = input.value.trim();
+      if (name) {
+        habits.push({ name, doneDates: [] });
+        saveHabits();
+        input.value = "";
+        render();
+        notify("✨ Привычка добавлена!");
+      }
+    });
+
+    function saveHabits() {
+      localStorage.setItem("habits", JSON.stringify(habits));
+    }
+
+    function render() {
+      list.innerHTML = "";
+      habits.forEach((habit, i) => {
+        const li = document.createElement("li");
+        const today = new Date().toISOString().split("T")[0];
+        const isDone = habit.doneDates.includes(today);
+
+        li.innerHTML = `
+          <span class="${isDone ? 'done' : ''}">${habit.name}</span>
+          <div class="btn-group">
+            ${isDone ? "✅" : `<button onclick="markDone(${i})">✔️</button>`}
+            <button onclick="showStats(${i})">📊</button>
+            <button onclick="removeHabit(${i})">🗑️</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
+
+      drawChart();
+    }
+
+    function markDone(i) {
+      const today = new Date().toISOString().split("T")[0];
+      if (!habits[i].doneDates.includes(today)) {
+        habits[i].doneDates.push(today);
+        saveHabits();
+        render();
+        notify("👍 Отмечено!");
+      }
+    }
+
+    function removeHabit(i) {
+      if (confirm(`Удалить "${habits[i].name}"?`)) {
+        habits.splice(i, 1);
+        saveHabits();
+        render();
+        notify("🗑️ Удалено.");
+      }
+    }
+
+    function notify(text) {
+      const note = document.createElement("div");
+      note.className = "notif";
+      note.textContent = text;
+      document.body.appendChild(note);
+      setTimeout(() => note.remove(), 2500);
+    }
+
+    function showStats(i) {
+      const stats = {};
+      habits[i].doneDates.forEach(date => {
+        stats[date] = (stats[date] || 0) + 1;
+      });
+      const labels = Object.keys(stats).sort();
+      const data = labels.map(date => stats[date]);
+
+      const ctx = document.getElementById("habitChart").getContext("2d");
+      if (window.habitChart) window.habitChart.destroy();
+      window.habitChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: `📈 ${habits[i].name}`,
+            data,
+            backgroundColor: '#4caf50'
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
